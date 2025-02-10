@@ -1,1 +1,47 @@
+name: Deploy to Dev (After Macro Insights Deploy)
 
+on:
+  workflow_run:
+    workflows: ["macro-insights-deploy"]
+    types:
+      - completed
+  workflow_dispatch: {}
+
+jobs:
+  approval:
+    name: Request Manual Approval
+    runs-on: ubuntu-standard
+    environment:
+      name: dev  # This triggers GitHub's manual approval process
+    steps:
+      - name: Await Manual Approval
+        run: echo "Waiting for manual approval..."
+
+  deploy:
+    name: Deploy to Dash Enterprise Dev
+    needs: approval
+    runs-on: ubuntu-standard
+    environment: dev
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      DE_USERNAME: ${{ secrets.DASH_ENTERPRISE_USERNAME }}
+      DE_PASSWORD: ${{ secrets.DASH_ENTERPRISE_PASSWORD }}
+      GH_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          ref: develop  # Assuming deployment should happen from develop branch
+
+      - name: Deploy to Dash Enterprise
+        uses: plotly/de-deploy@v4
+        with:
+          DE_HOST: dash.tfm.dev.cppinvestments.io
+          DE_USERNAME: ${{ env.DE_USERNAME }}
+          DE_PASSWORD: ${{ env.DE_PASSWORD }}
+          GH_ACCESS_TOKEN: ${{ env.GITHUB_TOKEN }}
+          APP_DIRECTORY: ${{ github.workspace }}
+          APP_NAME: macro-insights
